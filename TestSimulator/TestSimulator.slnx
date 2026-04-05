@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="TestSimulator.BLL/TestSimulator.BLL.csproj" />
+  <Project Path="TestSimulator.DAL/TestSimulator.DAL.csproj" />
+  <Project Path="TestSimulator.Domain/TestSimulator.Domain.csproj" />
+  <Project Path="TestSimulator.UI/TestSimulator.UI.csproj" />
+</Solution>
