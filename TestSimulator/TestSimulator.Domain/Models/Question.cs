@@ -1,7 +1,11 @@
+using System.Text.Json.Serialization;
 using TestSimulator.Domain.Enums;
 
 namespace TestSimulator.Domain.Models;
 
+[JsonDerivedType(typeof(SingleChoiceQuestion), typeDiscriminator: "single")]
+[JsonDerivedType(typeof(MultipleChoiceQuestion), typeDiscriminator: "multiple")]
+[JsonDerivedType(typeof(OpenAnswerQuestion), typeDiscriminator: "open")]
 public abstract class Question
 {
     public Guid Id { get; set; } = Guid.NewGuid();
