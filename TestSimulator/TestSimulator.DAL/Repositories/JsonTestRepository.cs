@@ -7,7 +7,7 @@ namespace TestSimulator.DAL.Repositories;
 
 public class JsonTestRepository : ITestRepository
 {
-    private readonly string _dataFolder = "Data";
+    private readonly string _dataFolder;
     private readonly string _topicsFile;
     private readonly string _resultsFile;
     private readonly string _configFile;
@@ -16,8 +16,10 @@ public class JsonTestRepository : ITestRepository
         WriteIndented = true
     };
 
-    public JsonTestRepository()
+    public JsonTestRepository(string dataFolderPath = "Data")
     {
+        _dataFolder = dataFolderPath;
+
         if (!Directory.Exists(_dataFolder))
         {
             Directory.CreateDirectory(_dataFolder);

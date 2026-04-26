@@ -8,7 +8,9 @@ class Program
 {
     public static void Main()
     {
-        var repository = new JsonTestRepository();
+        string basePath = AppDomain.CurrentDomain.BaseDirectory;
+        string targetDataFolder = Path.GetFullPath(Path.Combine(basePath, @"..\..\..\..\Data"));
+        var repository = new JsonTestRepository(targetDataFolder);
         var testService = new TestService(repository);
 
         Console.WriteLine("--Тренажер тестів--");
