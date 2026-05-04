@@ -65,7 +65,8 @@ class Program
 
             case "exit":
                 Console.WriteLine("Завершення роботи...");
-                return;
+                Environment.Exit(0);
+                break;
 
             default:
                 Console.ForegroundColor = ConsoleColor.Red;
