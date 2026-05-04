@@ -32,31 +32,7 @@ class Program
 
             try
             {
-                switch (command)
-                {
-                    case "create-test":
-                        CreateTest(testService, parts);
-                        break;
-                    case "create-topic":
-                        CreateTopic(testService);
-                        break;
-                    case "list":
-                        ShowList(testService);
-                        break;
-                    case "help":
-                        ShowHelp();
-                        break;
-
-                    case "exit":
-                        Console.WriteLine("Завершення роботи...");
-                        return;
-
-                    default:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"Невідома команда: '{command}'. Введіть 'help' для довідки.");
-                        Console.ResetColor();
-                        break;
-                }
+                ProcessCommand(command, parts, testService);
             }
             catch (Exception ex)
             {
@@ -64,6 +40,38 @@ class Program
                 Console.WriteLine($"Помилка: {ex.Message}");
                 Console.ResetColor();
             }
+        }
+    }
+
+    private static void ProcessCommand(string command, string[] parts, TestService testService)
+    {
+        switch (command)
+        {
+            case "create-question":
+                CreateQuestion(testService, parts);
+                break;
+            case "create-test":
+                CreateTest(testService, parts);
+                break;
+            case "create-topic":
+                CreateTopic(testService);
+                break;
+            case "list":
+                ShowList(testService);
+                break;
+            case "help":
+                ShowHelp();
+                break;
+
+            case "exit":
+                Console.WriteLine("Завершення роботи...");
+                return;
+
+            default:
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Невідома команда: '{command}'. Введіть 'help' для довідки.");
+                Console.ResetColor();
+                break;
         }
     }
 
@@ -75,6 +83,7 @@ class Program
         Console.WriteLine("list - Показати всі доступні теми та тести");
         Console.WriteLine("create-topic - Створити нову тему");
         Console.WriteLine("create-test <TopicID> - Додати тест до існуючої теми");
+        Console.WriteLine("create-question <TestID> - Додати запитання до існуючого тесту");
     }
 
     private static void ShowList(TestService service)
@@ -165,5 +174,131 @@ class Program
         Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine($"Тест '{test.Title}' успішно додано до теми '{topic.Name}', ID тесту: {test.Id}");
         Console.ResetColor();
+    }
+
+    private static void CreateQuestion(TestService service, string[] parts)
+    {
+        if (parts.Length < 2 || !Guid.TryParse(parts[1], out Guid testId))
+        {
+            Console.WriteLine("Вкажіть коректний ID тесту. Приклад: create-question 12345678-1234-... ");
+            return;
+        }
+
+        var (targetTopic, targetTest) = FindTestById(service.GetAllTopics(), testId);
+        if (targetTopic == null || targetTest == null)
+        {
+            Console.WriteLine("Тест з таким ID не знайдено.");
+            return;
+        }
+
+        Console.WriteLine("Оберіть тип запитання:");
+        Console.WriteLine("1 - з однією правильною відповіддю");
+        Console.WriteLine("2 - з кількома правильними відповідями");
+        Console.WriteLine("3 - відкрита відповідь");
+        Console.Write("Ваш вибір (1-3): ");
+
+        var inputType = Console.ReadLine()?.Trim();
+
+        Console.Write("Введіть текст запитання: ");
+        var text = Console.ReadLine()?.Trim() ?? "Без тексту";
+
+        Console.Write("Введіть кількість балів за це запитання: ");
+        if (!double.TryParse(Console.ReadLine(), out double points))
+        {
+            points = 1.0;
+        }
+
+        Question? newQuestion = inputType switch
+        {
+            "1" => BuildSingleChoiceQuestion(text, points),
+            "2" => BuildMultipleChoiceQuestion(text, points),
+            "3" => BuildOpenAnswerQuestion(text, points),
+            _ => null
+        };
+
+        if (newQuestion == null)
+        {
+            Console.WriteLine("Невідомий тип. Створення скасовано.");
+            return;
+        }
+
+        targetTest.Questions.Add(newQuestion);
+        service.SaveTopic(targetTopic);
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"Запитання успішно додано до тесту '{targetTest.Title}', ID: {newQuestion.Id}");
+        Console.ResetColor();
+    }
+
+    private static (Topic? topic, Test? test) FindTestById(List<Topic> topics, Guid testId)
+    {
+        foreach (var topic in topics)
+        {
+            var test = topic.Tests.FirstOrDefault(t => t.Id == testId);
+            if (test != null)
+            {
+                return (topic, test);
+            }
+        }
+
+        return (null, null);
+    }
+
+    private static SingleChoiceQuestion BuildSingleChoiceQuestion(string text, double points)
+    {
+        var single = new SingleChoiceQuestion { Text = text, Points = points };
+        Console.Write("Кількість варіантів відповіді ");
+        if (int.TryParse(Console.ReadLine(), out int count) && count > 0)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Console.Write($"Варіант {i + 1}: ");
+                single.Options.Add(Console.ReadLine()?.Trim() ?? string.Empty);
+            }
+            Console.Write("Введіть номер правильного варіанту: ");
+            if (int.TryParse(Console.ReadLine(), out int correctIndx))
+            {
+                single.CorrectOptionIndex = correctIndx - 1;
+            }
+        }
+
+        return single;
+    }
+
+    private static MultipleChoiceQuestion BuildMultipleChoiceQuestion(string text, double points)
+    {
+        var multi = new MultipleChoiceQuestion { Text = text, Points = points };
+        Console.Write("Кількість варіантів відповіді ");
+        if (int.TryParse(Console.ReadLine(), out int count) && count > 0)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                Console.Write($"Варіант {i + 1}: ");
+                multi.Options.Add(Console.ReadLine()?.Trim() ?? string.Empty);
+            }
+            Console.Write("Введіть номери правильних варіантів через кому (наприклад: 1,3): ");
+            var answersInput = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(answersInput))
+            {
+                foreach (var ans in answersInput.Split(','))
+                {
+                    if (int.TryParse(ans.Trim(), out int indx))
+                    {
+                        multi.CorrectOptionIndices.Add(indx - 1);
+                    }
+                }
+            }
+        }
+
+        return multi;
+    }
+
+    private static OpenAnswerQuestion BuildOpenAnswerQuestion(string text, double points)
+    {
+        var open = new OpenAnswerQuestion { Text = text, Points = points };
+        Console.Write("Введіть правильну відповідь (текст): ");
+        open.CorrectAnswerText = Console.ReadLine()?.Trim() ?? string.Empty;
+
+        return open;
     }
 }
