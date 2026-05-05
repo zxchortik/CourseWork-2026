@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TestSimulator.DAL.Interfaces;
 using TestSimulator.Domain.Config;
 using TestSimulator.Domain.Exceptions;
@@ -40,11 +41,17 @@ public class TestService
             throw new TestNotFoundException(testId);
         }
 
-        var questionsForSession = test.Questions.ToList();
+        var json = JsonSerializer.Serialize(test.Questions);
+        var questionsForSession = JsonSerializer.Deserialize<List<Question>>(json) ?? new List<Question>();
 
         if (_config.ShuffleQuestions)
         {
             ShuffleList(questionsForSession);
+
+            foreach (var q in questionsForSession)
+            {
+                ShuffleOptions(q);
+            }
         }
 
         return new TestSession
@@ -65,6 +72,35 @@ public class TestService
             T value = list[k];
             list[k] = list[n];
             list[n] = value;
+        }
+    }
+
+    private void ShuffleOptions(Question question)
+    {
+        if (question is SingleChoiceQuestion single)
+        {
+            var paired = single.Options.Select((text, index) => new { Text = text, IsCorrect = index == single.CorrectOptionIndex }).ToList();
+
+            ShuffleList(paired);
+
+            single.Options = paired.Select(p => p.Text).ToList();
+            single.CorrectOptionIndex = paired.FindIndex(p => p.IsCorrect);
+        }
+        else if (question is MultipleChoiceQuestion multi)
+        {
+            var paired = multi.Options.Select((text, index) => new { Text = text, IsCorrect = multi.CorrectOptionIndices.Contains(index) }).ToList();
+
+            ShuffleList(paired);
+
+            multi.Options = paired.Select(p => p.Text).ToList();
+            multi.CorrectOptionIndices.Clear();
+            for (int i = 0; i < paired.Count; i++)
+            {
+                if (paired[i].IsCorrect)
+                {
+                    multi.CorrectOptionIndices.Add(i);
+                }
+            }
         }
     }
 
