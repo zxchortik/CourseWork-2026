@@ -1,5 +1,6 @@
 ﻿using TestSimulator.BLL.Service;
 using TestSimulator.DAL.Repositories;
+using TestSimulator.Domain.Exceptions;
 using TestSimulator.Domain.Models;
 
 namespace TestSimulator.UI;
@@ -33,6 +34,12 @@ class Program
             try
             {
                 ProcessCommand(command, parts, testService);
+            }
+            catch (TestSimulatorException ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"Увага: {ex.Message}");
+                Console.ResetColor();
             }
             catch (Exception ex)
             {
@@ -410,11 +417,6 @@ class Program
         }
 
         var session = service.StartSession(testId);
-        if (session == null)
-        {
-            Console.WriteLine("Тест з таким ID не знайдено.");
-            return;
-        }
 
         Console.Clear();
         Console.WriteLine("--- Початок тесту ---");

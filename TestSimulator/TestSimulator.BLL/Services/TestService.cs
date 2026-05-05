@@ -1,5 +1,6 @@
 using TestSimulator.DAL.Interfaces;
 using TestSimulator.Domain.Config;
+using TestSimulator.Domain.Exceptions;
 using TestSimulator.Domain.Models;
 namespace TestSimulator.BLL.Service;
 
@@ -29,14 +30,14 @@ public class TestService
         _repository.DeleteTopic(topicId);
     }
 
-    public TestSession? StartSession(Guid testId)
+    public TestSession StartSession(Guid testId)
     {
         var allTopics = _repository.GetAllTopics();
         var test = allTopics.SelectMany(t => t.Tests).FirstOrDefault(t => t.Id == testId);
 
         if (test == null)
         {
-            return null;
+            throw new TestNotFoundException(testId);
         }
 
         var questionsForSession = test.Questions.ToList();
