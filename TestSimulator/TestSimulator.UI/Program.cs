@@ -47,6 +47,12 @@ class Program
     {
         switch (command)
         {
+            case "history":
+                ShowHistory(testService);
+                break;
+            case "start":
+                StartTest(testService, parts);
+                break;
             case "create-question":
                 CreateQuestion(testService, parts);
                 break;
@@ -62,7 +68,6 @@ class Program
             case "help":
                 ShowHelp();
                 break;
-
             case "exit":
                 Console.WriteLine("Завершення роботи...");
                 Environment.Exit(0);
@@ -85,6 +90,8 @@ class Program
         Console.WriteLine("create-topic - Створити нову тему");
         Console.WriteLine("create-test <TopicID> - Додати тест до існуючої теми");
         Console.WriteLine("create-question <TestID> - Додати запитання до існуючого тесту");
+        Console.WriteLine("start <TestID> - Почати проходження тесту за його ID");
+        Console.WriteLine("history - Показати історію проходжень тестів");
     }
 
     private static void ShowList(TestService service)
@@ -144,7 +151,7 @@ class Program
     {
         if (parts.Length < 2 || !Guid.TryParse(parts[1], out Guid topicId))
         {
-            Console.WriteLine("Вкажіть коректний ID теми. Приклад: create-test 12345678-1234-... ");
+            Console.WriteLine("Вкажіть коректний ID теми.");
             return;
         }
 
@@ -181,7 +188,7 @@ class Program
     {
         if (parts.Length < 2 || !Guid.TryParse(parts[1], out Guid testId))
         {
-            Console.WriteLine("Вкажіть коректний ID тесту. Приклад: create-question 12345678-1234-... ");
+            Console.WriteLine("Вкажіть коректний ID тесту.");
             return;
         }
 
@@ -301,5 +308,151 @@ class Program
         open.CorrectAnswerText = Console.ReadLine()?.Trim() ?? string.Empty;
 
         return open;
+    }
+
+    private static object? AskSingleChoice(SingleChoiceQuestion q)
+    {
+        for (int i = 0; i < q.Options.Count; i++)
+        {
+            Console.WriteLine($"  {i + 1}. {q.Options[i]}");
+        }
+
+        Console.Write("Ваша відповідь: ");
+        if (int.TryParse(Console.ReadLine(), out int indx))
+        {
+            return indx - 1;
+        }
+
+        return null;
+    }
+
+    private static object AskMultiChoce(MultipleChoiceQuestion q)
+    {
+        for (int i = 0; i < q.Options.Count; i++)
+        {
+            Console.WriteLine($"  {i + 1}. {q.Options[i]}");
+        }
+
+        Console.Write("Ваші відповіді через кому (наприклад 1,3): ");
+        var input = Console.ReadLine();
+        var answerIndices = new List<int>();
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return answerIndices;
+        }
+
+        foreach (var ans in input.Split(','))
+        {
+            if (int.TryParse(ans.Trim(), out int idx))
+            {
+                answerIndices.Add(idx - 1);
+            }
+        }
+
+        return answerIndices;
+    }
+
+    private static object? AskOpenAnswer(OpenAnswerQuestion q)
+    {
+        Console.Write("Ваша відповідь: ");
+        return Console.ReadLine()?.Trim();
+    }
+
+    private static object? AskUserForAnswer(Question question)
+    {
+        if (question is SingleChoiceQuestion single)
+        {
+            return AskSingleChoice(single);
+        }
+
+        if (question is MultipleChoiceQuestion multi)
+        {
+            return AskMultiChoce(multi);
+        }
+
+        if (question is OpenAnswerQuestion open)
+        {
+            return AskOpenAnswer(open);
+        }
+
+        return null;
+    }
+
+    private static void StartTest(TestService service, string[] parts)
+    {
+        if (parts.Length < 2 || !Guid.TryParse(parts[1], out Guid testId))
+        {
+            Console.WriteLine("Вкажіть коректний ID тесту.");
+            return;
+        }
+
+        var session = service.StartSession(testId);
+        if (session == null)
+        {
+            Console.WriteLine("Тест з таким ID не знайдено.");
+            return;
+        }
+
+        Console.Clear();
+        Console.WriteLine("--- Початок тесту ---");
+
+        int qNumber = 1;
+        foreach (var question in session.SessionQuestions)
+        {
+            Console.WriteLine($"\nЗапитання {qNumber++}/{session.SessionQuestions.Count} ({question.Points} балів):");
+            Console.WriteLine(question.Text);
+
+            object? userAnswer = AskUserForAnswer(question);
+            if (userAnswer != null)
+            {
+                session.UserAnswers[question.Id] = userAnswer;
+            }
+        }
+
+        var result = service.FinishSession(session);
+        PrintResult(result, session);
+    }
+
+    private static void PrintResult(TestResult result, TestSession session)
+    {
+        Console.WriteLine("\n=====================================");
+        Console.WriteLine($"Тест завершено! Ваш результат: {result.Score} / {result.MaxScore} ({result.PercentageScore:F1}%)");
+
+        if (result.IncorrectQuestionIds.Any())
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("\nПомилки у запитаннях:");
+            Console.ResetColor();
+
+            foreach (var wrongId in result.IncorrectQuestionIds)
+            {
+                var wrongQ = session.SessionQuestions.First(q => q.Id == wrongId);
+                Console.WriteLine($"- {wrongQ.Text}");
+            }
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Ідеально! Жодної помилки.");
+            Console.ResetColor();
+        }
+        Console.WriteLine("=====================================");
+    }
+
+    private static void ShowHistory(TestService service)
+    {
+        var history = service.GetUserHistory();
+        if (!history.Any())
+        {
+            Console.WriteLine("Історія порожня.");
+            return;
+        }
+
+        Console.WriteLine("\n--- Ваша історія ---");
+        foreach (var result in history.OrderByDescending(r => r.CompletedAt))
+        {
+            Console.WriteLine($"[{result.CompletedAt:g}] {result.TestTitle} | Результат: {result.Score}/{result.MaxScore} ({result.PercentageScore:F1}%)");
+        }
     }
 }
