@@ -317,13 +317,18 @@ class Program
             Console.WriteLine($"  {i + 1}. {q.Options[i]}");
         }
 
-        Console.Write("Ваша відповідь: ");
-        if (int.TryParse(Console.ReadLine(), out int indx))
+        while (true)
         {
-            return indx - 1;
-        }
+            Console.Write("Ваша відповідь: ");
+            if (int.TryParse(Console.ReadLine(), out int indx) && indx >= 1 && indx <= q.Options.Count)
+            {
+                return indx - 1;
+            }
 
-        return null;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: введіть коректне число від 1 до {q.Options.Count}.");
+            Console.ResetColor();
+        }
     }
 
     private static object AskMultiChoce(MultipleChoiceQuestion q)
@@ -333,24 +338,41 @@ class Program
             Console.WriteLine($"  {i + 1}. {q.Options[i]}");
         }
 
-        Console.Write("Ваші відповіді через кому (наприклад 1,3): ");
-        var input = Console.ReadLine();
-        var answerIndices = new List<int>();
-
-        if (string.IsNullOrWhiteSpace(input))
+        while (true)
         {
-            return answerIndices;
-        }
+            Console.Write("Ваші відповіді через кому (наприклад 1,3): ");
+            var input = Console.ReadLine();
 
-        foreach (var ans in input.Split(','))
-        {
-            if (int.TryParse(ans.Trim(), out int idx))
+            if (string.IsNullOrWhiteSpace(input))
             {
-                answerIndices.Add(idx - 1);
+                return new List<int>();
             }
-        }
 
-        return answerIndices;
+            var answerIndices = new List<int>();
+            bool hasErrors = false;
+
+            foreach (var ans in input.Split(','))
+            {
+                if (int.TryParse(ans.Trim(), out int idx) && idx >= 1 && idx <= q.Options.Count)
+                {
+                    answerIndices.Add(idx - 1);
+                }
+                else
+                {
+                    hasErrors = true;
+                    break;
+                }
+            }
+
+            if (!hasErrors)
+            {
+                return answerIndices;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: використовуйте лише числа від 1 до {q.Options.Count}, розділені комою.");
+            Console.ResetColor();
+        }
     }
 
     private static object? AskOpenAnswer(OpenAnswerQuestion q)
