@@ -111,22 +111,18 @@ public class TestEditorView
         Console.WriteLine("3 - відкрита відповідь");
         Console.Write("Ваш вибір (1-3): ");
 
-        var inputType = Console.ReadLine()?.Trim();
+        int typeChoice = ReadValidInt("Ваш вибір (1-3): ", 1, 3);
 
         Console.Write("Введіть текст запитання: ");
         var text = Console.ReadLine()?.Trim() ?? "Без тексту";
 
-        Console.Write("Введіть кількість балів за це запитання: ");
-        if (!double.TryParse(Console.ReadLine(), out double points))
-        {
-            points = 1.0;
-        }
+        double points = ReadValidDouble("Введіть кількість балів за це запитання: ", 0.1);
 
-        Question? newQuestion = inputType switch
+        Question? newQuestion = typeChoice switch
         {
-            "1" => BuildSingleChoiceQuestion(text, points),
-            "2" => BuildMultipleChoiceQuestion(text, points),
-            "3" => BuildOpenAnswerQuestion(text, points),
+            1 => BuildSingleChoiceQuestion(text, points),
+            2 => BuildMultipleChoiceQuestion(text, points),
+            3 => BuildOpenAnswerQuestion(text, points),
             _ => null
         };
 
@@ -285,11 +281,11 @@ public class TestEditorView
             search.Question.Text = text;
         }
 
-        Console.Write($"Нові бали (було: {search.Question.Points}): ");
-        var pointsInput = Console.ReadLine()?.Trim();
-        if (!string.IsNullOrEmpty(pointsInput) && double.TryParse(pointsInput, out double points))
+        double? newPoints = ReadOptionalValidDouble($"Нові бали (було: {search.Question.Points}) - натисніть Enter, щоб не змінювати: ", 0.1);
+
+        if (newPoints.HasValue)
         {
-            search.Question.Points = points;
+            search.Question.Points = newPoints.Value;
         }
 
         _service.SaveTopic(search.Topic!);
@@ -331,11 +327,7 @@ public class TestEditorView
     {
         var single = new SingleChoiceQuestion { Text = text, Points = points };
 
-        Console.Write("Кількість варіантів відповіді: ");
-        if (!int.TryParse(Console.ReadLine(), out int count) || count <= 0)
-        {
-            return single;
-        }
+        int count = ReadValidInt("Кількість варіантів відповіді: ", 1, 20);
 
         for (int i = 0; i < count; i++)
         {
@@ -343,11 +335,8 @@ public class TestEditorView
             single.Options.Add(Console.ReadLine()?.Trim() ?? string.Empty);
         }
 
-        Console.Write("Введіть номер правильного варіанту: ");
-        if (int.TryParse(Console.ReadLine(), out int correctIndx))
-        {
-            single.CorrectOptionIndex = correctIndx - 1;
-        }
+        int correctIndx = ReadValidInt("Введіть номер правильного варіанту: ", 1, count);
+        single.CorrectOptionIndex = correctIndx - 1;
 
         return single;
     }
@@ -356,11 +345,7 @@ public class TestEditorView
     {
         var multi = new MultipleChoiceQuestion { Text = text, Points = points };
 
-        Console.Write("Кількість варіантів відповіді: ");
-        if (!int.TryParse(Console.ReadLine(), out int count) || count <= 0)
-        {
-            return multi;
-        }
+        int count = ReadValidInt("Кількість варіантів відповіді: ", 1, 20);
 
         for (int i = 0; i < count; i++)
         {
@@ -368,20 +353,11 @@ public class TestEditorView
             multi.Options.Add(Console.ReadLine()?.Trim() ?? string.Empty);
         }
 
-        Console.Write("Введіть номери правильних варіантів через кому (наприклад: 1,3): ");
-        var answersInput = Console.ReadLine();
+        var correctIndices = ReadValidIntList("Введіть номери правильних варіантів через кому (наприклад: 1,3): ", 1, count);
 
-        if (string.IsNullOrWhiteSpace(answersInput))
+        foreach (var idx in correctIndices)
         {
-            return multi;
-        }
-
-        foreach (var ans in answersInput.Split(','))
-        {
-            if (int.TryParse(ans.Trim(), out int indx))
-            {
-                multi.CorrectOptionIndices.Add(indx - 1);
-            }
+            multi.CorrectOptionIndices.Add(idx - 1);
         }
 
         return multi;
@@ -393,5 +369,102 @@ public class TestEditorView
         Console.Write("Введіть правильну відповідь (текст): ");
         open.CorrectAnswerText = Console.ReadLine()?.Trim() ?? string.Empty;
         return open;
+    }
+
+    private int ReadValidInt(string prompt, int min, int max)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            if (int.TryParse(Console.ReadLine(), out int result) && result >= min && result <= max)
+            {
+                return result;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: введіть ціле число від {min} до {max}.");
+            Console.ResetColor();
+        }
+    }
+
+    private double ReadValidDouble(string prompt, double min)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            if (double.TryParse(Console.ReadLine(), out double result) && result >= min)
+            {
+                return result;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: введіть число більше або дорівнює {min}.");
+            Console.ResetColor();
+        }
+    }
+
+    private List<int> ReadValidIntList(string prompt, int min, int max)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            var input = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Помилка: введення не може бути порожнім.");
+                Console.ResetColor();
+                continue;
+            }
+
+            var indices = new List<int>();
+            bool hasErrors = false;
+
+            foreach (var ans in input.Split(','))
+            {
+                if (int.TryParse(ans.Trim(), out int idx) && idx >= min && idx <= max)
+                {
+                    indices.Add(idx);
+                }
+                else
+                {
+                    hasErrors = true;
+                    break;
+                }
+            }
+
+            if (!hasErrors && indices.Any())
+            {
+                return indices;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: використовуйте лише числа від {min} до {max}, розділені комою.");
+            Console.ResetColor();
+        }
+    }
+
+    private double? ReadOptionalValidDouble(string prompt, double min)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            var input = Console.ReadLine()?.Trim();
+
+            if (string.IsNullOrEmpty(input))
+            {
+                return null;
+            }
+
+            if (double.TryParse(input, out double result) && result >= min)
+            {
+                return result;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: введіть число більше або дорівнює {min}, або просто натисніть Enter.");
+            Console.ResetColor();
+        }
     }
 }
