@@ -9,6 +9,7 @@ public class TestService
 {
     private readonly ITestRepository _repository;
     private AppConfig _config;
+    public Action<string>? OnLogMessage;
 
     public TestService(ITestRepository repository)
     {
@@ -24,6 +25,8 @@ public class TestService
     public void SaveTopic(Topic topic)
     {
         _repository.SaveTopic(topic);
+
+        OnLogMessage?.Invoke($"Збережено нову або оновлену тему: {topic.Name}");
     }
 
     public void DeleteTopic(Guid topicId)
@@ -163,6 +166,9 @@ public class TestService
         };
 
         _repository.SaveTestResult(result);
+
+        OnLogMessage?.Invoke($"Користувач завершив тест '{result.TestTitle}' з результатом {result.Score}/{result.MaxScore} балів.");
+
         return result;
     }
 

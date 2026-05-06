@@ -14,6 +14,13 @@ class Program
         var repository = new JsonTestRepository(targetDataFolder);
         var testService = new TestService(repository);
 
+        testService.OnLogMessage = (message) =>
+        {
+            Console.ForegroundColor = ConsoleColor.DarkGray;
+            Console.WriteLine($"\n[ЛОГ СЕРВІСУ]: {message}");
+            Console.ResetColor();
+        };
+
         Console.WriteLine("--Тренажер тестів--");
         Console.WriteLine("Введіть 'help' для перегляду списку доступних команд.");
         Console.WriteLine("Введіть 'exit' для виходу з програми.");
