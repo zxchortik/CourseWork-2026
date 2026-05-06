@@ -1,4 +1,5 @@
 using TestSimulator.BLL.Service;
+using TestSimulator.Domain.Config;
 using TestSimulator.Domain.Exceptions;
 using TestSimulator.Domain.Models;
 
@@ -466,5 +467,118 @@ public class TestEditorView
             Console.WriteLine($"Помилка: введіть число більше або дорівнює {min}, або просто натисніть Enter.");
             Console.ResetColor();
         }
+    }
+
+    private int? ReadOptionalValidInt(string prompt, int min)
+    {
+        while (true)
+        {
+            Console.Write(prompt);
+            var input = Console.ReadLine()?.Trim();
+
+            if (string.IsNullOrEmpty(input))
+            {
+                return null;
+            }
+
+            if (int.TryParse(input, out int result) && result >= min)
+            {
+                return result;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"Помилка: введіть ціле число більше або дорівнює {min}, або просто натисніть Enter.");
+            Console.ResetColor();
+        }
+    }
+
+    public void Settings()
+    {
+        var config = _service.GetCurrentConfig();
+
+        while (true)
+        {
+            Console.WriteLine("\n=== НАЛАШТУВАННЯ ЗАСТОСУНКУ ===");
+            Console.WriteLine($"1. Перемішувати питання та варіанти: {(config.ShuffleQuestions ? "Так" : "Ні")}");
+            Console.WriteLine($"2. Прохідний бал для тестів: {config.PassingScorePercentage}%");
+            Console.WriteLine($"3. Тривалість сесії (хвилин): {config.SessionDurationMinutes}");
+            Console.WriteLine($"4. Показувати правильну відповідь одразу: {(config.ShowCorrectAnswersImmediately ? "Так" : "Ні")}");
+            Console.WriteLine("0. Повернутися назад");
+            Console.Write("Що хочете змінити? (1-4 або 0): ");
+
+            var choice = Console.ReadLine()?.Trim();
+
+            switch (choice)
+            {
+                case "1": ToggleShuffle(config); break;
+                case "2": UpdatePassingScore(config); break;
+                case "3": UpdateSessionDuration(config); break;
+                case "4": ToggleShowAnswers(config); break;
+                case "0": return;
+                default:
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Помилка: Невідомий пункт меню. Будь ласка, введіть 0-4.");
+                    Console.ResetColor();
+                    break;
+            }
+        }
+    }
+
+    private void ToggleShuffle(AppConfig config)
+    {
+        config.ShuffleQuestions = !config.ShuffleQuestions;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"Налаштування змінено! Перемішування: {(config.ShuffleQuestions ? "Так" : "Ні")}");
+        Console.ResetColor();
+        _service.UpdateConfig(config);
+    }
+
+    private void ToggleShowAnswers(AppConfig config)
+    {
+        config.ShowCorrectAnswersImmediately = !config.ShowCorrectAnswersImmediately;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"Налаштування змінено! Показувати одразу: {(config.ShowCorrectAnswersImmediately ? "Так" : "Ні")}");
+        Console.ResetColor();
+        _service.UpdateConfig(config);
+    }
+
+    private void UpdatePassingScore(AppConfig config)
+    {
+        double? newScore = ReadOptionalValidDouble("Введіть новий прохідний бал у % (від 0 до 100, або Enter щоб скасувати): ", 0);
+        if (!newScore.HasValue) return;
+
+        if (newScore.Value > 100)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Помилка: Прохідний бал не може перевищувати 100%.");
+            Console.ResetColor();
+            return;
+        }
+
+        config.PassingScorePercentage = newScore.Value;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"Налаштування змінено! Прохідний бал: {config.PassingScorePercentage}%");
+        Console.ResetColor();
+        _service.UpdateConfig(config);
+    }
+
+    private void UpdateSessionDuration(AppConfig config)
+    {
+        int? newDuration = ReadOptionalValidInt("Введіть тривалість сесії у хвилинах (від 1 до 180, або Enter щоб скасувати): ", 1);
+        if (!newDuration.HasValue) return;
+
+        if (newDuration.Value > 180)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("Помилка: Тривалість не може перевищувати 180 хвилин.");
+            Console.ResetColor();
+            return;
+        }
+
+        config.SessionDurationMinutes = newDuration.Value;
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine($"Налаштування змінено! Тривалість сесії: {config.SessionDurationMinutes} хв.");
+        Console.ResetColor();
+        _service.UpdateConfig(config);
     }
 }

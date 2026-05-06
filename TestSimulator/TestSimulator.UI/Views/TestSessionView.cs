@@ -1,4 +1,6 @@
 using TestSimulator.BLL.Service;
+using TestSimulator.Domain.Config;
+using TestSimulator.Domain.Exceptions;
 using TestSimulator.Domain.Models;
 
 namespace TestSimulator.UI.Views;
@@ -16,46 +18,86 @@ public class TestSessionView
     {
         if (parts.Length < 2 || !Guid.TryParse(parts[1], out Guid testId))
         {
-            Console.WriteLine("Вкажіть коректний ID тесту.");
-            return;
+            throw new TestSimulatorException("Вкажіть коректний ID тесту.");
         }
 
-        int? qCount = null;
-        if (parts.Length >= 3)
-        {
-            if (int.TryParse(parts[2], out int parsedCount))
-            {
-                qCount = parsedCount;
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Помилка: '{parts[2]}' не є коректним числом.");
-                Console.ResetColor();
-                return;
-            }
-        }
+        int? qCount = ParseQuestionCount(parts);
 
         var session = _service.StartSession(testId, qCount);
+        var config = _service.GetCurrentConfig();
 
         Console.Clear();
         Console.WriteLine("--- Початок тесту ---");
 
-        int qNumber = 1;
-        foreach (var question in session.SessionQuestions)
-        {
-            Console.WriteLine($"\nЗапитання {qNumber++}/{session.SessionQuestions.Count} ({question.Points} балів):");
-            Console.WriteLine(question.Text);
-
-            object? userAnswer = AskUserForAnswer(question);
-            if (userAnswer != null)
-            {
-                session.UserAnswers[question.Id] = userAnswer;
-            }
-        }
+        RunTestLoop(session, config);
 
         var result = _service.FinishSession(session);
         PrintResult(result, session);
+    }
+
+    private int? ParseQuestionCount(string[] parts)
+    {
+        if (parts.Length < 3)
+        {
+            return null;
+        }
+
+        if (int.TryParse(parts[2], out int parsedCount))
+        {
+            return parsedCount;
+        }
+
+        throw new TestSimulatorException($"'{parts[2]}' не є коректним числом для кількості запитань.");
+    }
+
+    private void RunTestLoop(TestSession session, AppConfig config)
+    {
+        int qNumber = 1;
+
+        foreach (var question in session.SessionQuestions)
+        {
+            TimeSpan timeSpent = DateTime.Now - session.StartTime;
+            if (timeSpent.TotalMinutes >= config.SessionDurationMinutes)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("\nЧас вичерпано! Тест завершується автоматично.");
+                Console.ResetColor();
+                break;
+            }
+
+            int minutesLeft = config.SessionDurationMinutes - (int)timeSpent.TotalMinutes;
+            Console.WriteLine($"\nЗапитання {qNumber++}/{session.SessionQuestions.Count} ({question.Points} балів) | Залишилось: ~{minutesLeft} хв.");
+            Console.WriteLine(question.Text);
+
+            object? userAnswer = AskUserForAnswer(question);
+
+            if (userAnswer == null)
+            {
+                continue;
+            }
+
+            session.UserAnswers[question.Id] = userAnswer;
+
+            if (config.ShowCorrectAnswersImmediately)
+            {
+                ShowImmediateFeedback(question, userAnswer);
+            }
+        }
+    }
+
+    private void ShowImmediateFeedback(Question question, object userAnswer)
+    {
+        if (question.CheckAnswer(userAnswer))
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("-> Правильно!");
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("-> Неправильно!");
+        }
+        Console.ResetColor();
     }
 
     public void ShowHistory()

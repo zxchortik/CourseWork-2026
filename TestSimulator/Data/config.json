@@ -1,0 +1,6 @@
+{
+  "SessionDurationMinutes": 30,
+  "ShowCorrectAnswersImmediately": false,
+  "PassingScorePercentage": 70,
+  "ShuffleQuestions": true
+}

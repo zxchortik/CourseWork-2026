@@ -78,6 +78,7 @@ class Program
             case "delete-question": editor.DeleteQuestion(parts); break;
             case "help": ShowHelp(); break;
             case "stats": session.ShowStatistics(); break;
+            case "settings": editor.Settings(); break;
             case "exit":
                 Console.WriteLine("Завершення роботи...");
                 Environment.Exit(0);
@@ -96,6 +97,7 @@ class Program
         Console.WriteLine("Доступні команди:");
         Console.WriteLine("  exit                  - Вихід із програми");
         Console.WriteLine("  help                  - Показати цю довідку");
+        Console.WriteLine("  settings              - Налаштування застосунку");
         Console.WriteLine("\nПроходження тестів:");
         Console.WriteLine("  list                  - Показати всі доступні теми та тести");
         Console.WriteLine("  start <ID> [Count]    - Почати тест (можна вказати кількість питань)");
