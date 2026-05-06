@@ -190,4 +190,58 @@ public class TestSessionView
         }
         Console.WriteLine("=====================================");
     }
+
+    public void ShowStatistics()
+    {
+        var history = _service.GetUserHistory();
+        if (history.Count == 0)
+        {
+            Console.WriteLine("Немає даних для статистики. Пройдіть хоча б один тест.");
+            return;
+        }
+
+        Console.Clear();
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        Console.WriteLine("=== СТАТИСТИКА УСПІШНОСТІ ===");
+        Console.ResetColor();
+
+        int totalTests = history.Count;
+        double averagePercentage = history.Average(r => r.PercentageScore);
+        Console.WriteLine($"\nЗагальна кількість пройдених тестів: {totalTests}");
+        Console.WriteLine($"Середній бал успішності: {averagePercentage:F1}%");
+
+        Console.WriteLine("\n--- Успішність за тестами ---");
+        var groupedTest = history.GroupBy(r => r.TestTitle);
+        foreach (var group in groupedTest)
+        {
+            double avgTestScore = group.Average(r => r.PercentageScore);
+            Console.WriteLine($"- {group.Key}: {group.Count()} проходжень, середній бал {avgTestScore:F1}%");
+        }
+
+        Console.WriteLine("\n--- Найскладніші запитання (Топ помилок) ---");
+        var allIncorrectIds = history.SelectMany(r => r.IncorrectQuestionIds).ToList();
+
+        if (allIncorrectIds.Count == 0)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Ви ще не зробили жодної помилки! Ідеальний результат.");
+            Console.ResetColor();
+            Console.WriteLine("=============================\n");
+            return;
+        }
+
+        var errorCount = allIncorrectIds.CountBy(id => id).OrderByDescending(x => x.Value).Take(5).ToList();
+        var allQuestions = _service.GetAllTopics().SelectMany(topic => topic.Tests).SelectMany(test => test.Questions).ToList();
+
+        foreach (var error in errorCount)
+        {
+            var questionId = error.Key;
+            var count = error.Value;
+
+            var question = allQuestions.FirstOrDefault(q => q.Id == questionId);
+            string qText = question != null ? question.Text : "[Видалене запитання]";
+
+            Console.WriteLine($"- Помилок: {count} | Запитання: \"{qText}\"");
+        }
+    }
 }
