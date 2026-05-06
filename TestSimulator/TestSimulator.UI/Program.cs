@@ -417,9 +417,20 @@ class Program
         }
 
         int? qCount = null;
-        if (parts.Length >= 3 && int.TryParse(parts[2], out int parsedCount))
+
+        if (parts.Length >= 3)
         {
-            qCount = parsedCount;
+            if (int.TryParse(parts[2], out int parsedCount))
+            {
+                qCount = parsedCount;
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Помилка: '{parts[2]}' не є коректним числом для кількості запитань.");
+                Console.ResetColor();
+                return;
+            }
         }
 
         var session = service.StartSession(testId, qCount);
