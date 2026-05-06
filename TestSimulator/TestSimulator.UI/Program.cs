@@ -97,7 +97,7 @@ class Program
         Console.WriteLine("create-topic - Створити нову тему");
         Console.WriteLine("create-test <TopicID> - Додати тест до існуючої теми");
         Console.WriteLine("create-question <TestID> - Додати запитання до існуючого тесту");
-        Console.WriteLine("start <TestID> - Почати проходження тесту за його ID");
+        Console.WriteLine("start <TestID> [Count] - Почати проходження тесту за його ID (можна вказати кількість питань, напр. start ... 5)");
         Console.WriteLine("history - Показати історію проходжень тестів");
     }
 
@@ -416,7 +416,13 @@ class Program
             return;
         }
 
-        var session = service.StartSession(testId);
+        int? qCount = null;
+        if (parts.Length >= 3 && int.TryParse(parts[2], out int parsedCount))
+        {
+            qCount = parsedCount;
+        }
+
+        var session = service.StartSession(testId, qCount);
 
         Console.Clear();
         Console.WriteLine("--- Початок тесту ---");

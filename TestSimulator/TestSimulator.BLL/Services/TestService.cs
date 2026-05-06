@@ -31,7 +31,7 @@ public class TestService
         _repository.DeleteTopic(topicId);
     }
 
-    public TestSession StartSession(Guid testId)
+    public TestSession StartSession(Guid testId, int? questionsCount = null)
     {
         var allTopics = _repository.GetAllTopics();
         var test = allTopics.SelectMany(t => t.Tests).FirstOrDefault(t => t.Id == testId);
@@ -52,6 +52,21 @@ public class TestService
             {
                 ShuffleOptions(q);
             }
+        }
+
+        if (questionsCount.HasValue)
+        {
+            if (questionsCount <= 0)
+            {
+                throw new TestSimulatorException("Кількість запитань має бути більшою за нуль.");
+            }
+
+            if (questionsCount.Value > questionsForSession.Count)
+            {
+                throw new TestSimulatorException($"У тесті лише {questionsForSession.Count} запитань. Ви не можете обрати {questionsCount.Value}.");
+            }
+
+            questionsForSession = questionsForSession.Take(questionsCount.Value).ToList();
         }
 
         return new TestSession
