@@ -146,4 +146,86 @@ public class TestServiceTests
             Assert.That(_repo.Config.PassingScorePercentage, Is.EqualTo(99), "Конфігурація не збереглася в репозиторій");
         });
     }
+
+    [Test]
+    public void GetAllTopics_ReturnsTopicsFromRepository()
+    {
+        var topics = _service.GetAllTopics();
+        Assert.That(topics.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void GetUserHistory_ReturnsResultsFromRepository()
+    {
+        _repo.SavedResults.Add(new TestResult { Score = 100 });
+        var history = _service.GetUserHistory();
+        Assert.That(history.Count, Is.EqualTo(1));
+        Assert.That(history[0].Score, Is.EqualTo(100));
+    }
+
+    [Test]
+    public void FinishSession_FiresOnLogMessageDelegate()
+    {
+        var session = new TestSession
+        {
+            TestId = _testId,
+            SessionQuestions = new List<Question>()
+        };
+
+        bool delegateFired = false;
+        string interceptedMessage = string.Empty;
+
+        _service.OnLogMessage = (msg) =>
+        {
+            delegateFired = true;
+            interceptedMessage = msg;
+        };
+
+        _service.FinishSession(session);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(delegateFired, Is.True, "Делегат OnLogMessage не був викликаний!");
+            Assert.That(interceptedMessage, Does.Contain("Користувач завершив тест"), "Повідомлення делегата має неправильний формат");
+        });
+    }
+
+    [Test]
+    public void DeleteTopic_PassesIdToRepository()
+    {
+        var idToDelete = Guid.NewGuid();
+        Assert.DoesNotThrow(() => _service.DeleteTopic(idToDelete));
+    }
+    [Test]
+    public void SaveTopic_PassesTopicToRepository()
+    {
+        var newTopic = new Topic { Name = "New Topic" };
+        Assert.DoesNotThrow(() => _service.SaveTopic(newTopic));
+    }
+
+    [Test]
+    public void StartSession_WithShuffleEnabled_ReturnsSameAmountOfQuestionsAndOptions()
+    {
+        _repo.Config.ShuffleQuestions = true;
+
+        var q = new SingleChoiceQuestion
+        {
+            Id = Guid.NewGuid(),
+            Options = new List<string> { "A", "B", "C" },
+            CorrectOptionIndex = 0
+        };
+        _repo.Topics[0].Tests[0].Questions.Add(q);
+
+        var session = _service.StartSession(_testId);
+
+        var shuffledQuestion = session.SessionQuestions.Find(x => x.Id == q.Id) as SingleChoiceQuestion;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shuffledQuestion, Is.Not.Null);
+            Assert.That(shuffledQuestion!.Options.Count, Is.EqualTo(3), "Після перемішування кількість варіантів змінилася!");
+            int newCorrectIndex = shuffledQuestion.Options.IndexOf("A");
+            Assert.That(shuffledQuestion.CorrectOptionIndex, Is.EqualTo(newCorrectIndex), "Індекс правильної відповіді оновився неправильно!");
+        });
+    }
 }
